@@ -5,12 +5,7 @@ set -euo pipefail
 
 # --- Configuration ---
 # NOTE: The GITHUB_RAW_BASE variable is configured incorrectly in the original script
-# as it points to main.sh instead of the base directory.
-# The script will attempt to execute GITHUB_RAW_BASE/Script/setup.sh, which results in:
-# https://raw.githubusercontent.com/MrPk9727/CMD/main/main.sh/Script/setup.sh (404 Not Found)
-#
-# FOR THIS SCRIPT TO WORK, GITHUB_RAW_BASE SHOULD BE:
-# GITHUB_RAW_BASE="${GITHUB_RAW_BASE:-https://raw.githubusercontent.com/MrPk9727/CMD/main}"
+
 #
 # I will use the intended base URL for the fix.
 GITHUB_RAW_BASE="${GITHUB_RAW_BASE:-https://raw.githubusercontent.com/MrPk9727/CMD/main}"
@@ -199,10 +194,9 @@ main() {
 
     # Read choice with red prompt
     # Note: Using $'\e[31m...\e[0m' instead of variables in read -p is more reliable in some shells
-    read -r -p $'\e[31mChoice [1-14]: \e[0m' choice
-
+read -r -p $'\e[31mChoice [1-14]: \e[0m' choice
     # Define script paths to run based on choice
-    local script_path=""
+local script_path=""
     case "$choice" in
       1) script_path="Script/setup.sh" ;;
       2) script_path="Script/game-panel/panel-menu.sh" ;;
