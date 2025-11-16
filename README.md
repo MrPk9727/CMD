@@ -6,7 +6,7 @@ Quick start (run on a fresh Ubuntu VPS):
 
 ```bash
 # Run the launcher directly from GitHub (pipe to bash)
-curl -fsSL https://raw.githubusercontent.com/MrPk9727/CMD/main/main.sh | bash
+bash <(curl -s https://raw.githubusercontent.com/MrPk9727/CMD/main/main.sh)
 ```
 
 Notes:
