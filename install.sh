@@ -1,46 +1,43 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# --- Configuration ---
 REPO="MrPk9727/CMD"
-BINARY_NAME="MRPK"   # binary name inside released archive
-GITHUB_API="https://api.github.com/repos/$REPO/releases/latest"
+BRANCH="main" # The branch to scan (e.g., main, master)
+API_URL="https://api.github.com/repos/$REPO/contents"
+RAW_URL_BASE="https://raw.githubusercontent.com/$REPO/$BRANCH"
 
-err() { printf '%s\n' "$*" >&2; exit 1; }
+err() { printf '\nERROR: %s\n' "$*" >&2; exit 1; }
 
-command -v curl >/dev/null || err "curl required"
-TMPDIR="$(mktemp -d)"
-cleanup(){ rm -rf "$TMPDIR"; }
-trap cleanup EXIT
+# Check for curl
+command -v curl >/dev/null || err "curl command required."
+command -v jq >/dev/null || err "jq command required to parse API response. Please install it (e.g., sudo apt install jq)."
 
-# detect os/arch
-OS="$(uname -s | tr '[:upper:]' '[:lower:]')"
-ARCH="$(uname -m)"
-case "$ARCH" in
-  x86_64|amd64) ARCH="x86_64" ;;
-  aarch64|arm64) ARCH="arm64" ;;
-  *) err "unsupported arch: $ARCH" ;;
-esac
+printf "🔍 Scanning repository %s on branch %s for .sh files...\n\n" "$REPO" "$BRANCH"
 
-# pick asset from latest release
-ASSET_URL="$(curl -fsSL "$GITHUB_API" | \
-  grep -E 'browser_download_url' | \
-  sed -E 's/.*"([^"]+)".*/\1/' | \
-  grep "$OS" | grep "$ARCH" | head -n1)"
+# --- Fetch and Parse File Paths ---
+# Use the GitHub Contents API (recursive call is needed to find all files)
+# We fetch the entire tree of files for the specified branch/SHA
+API_TREE_URL="https://api.github.com/repos/$REPO/git/trees/$BRANCH?recursive=1"
 
-[ -n "$ASSET_URL" ] || err "no release asset found for $OS-$ARCH"
+# 1. Fetch the file tree structure from the API.
+# 2. Use jq to filter objects where:
+#    a) 'type' is 'blob' (a file).
+#    b) 'path' ends with '.sh'.
+# 3. Print the 'path' for each match.
+FILE_PATHS=$(curl -fsSL "$API_TREE_URL" | \
+  jq -r '.tree[] | select(.type=="blob" and (.path | endswith(".sh"))) | .path'
+)
 
-cd "$TMPDIR"
-curl -fsSL -o asset.tar.gz "$ASSET_URL"
-tar -xzf asset.tar.gz || { # try zip fallback
-  unzip -q asset.tar.gz || err "failed to extract"
-}
-# adjust path if archive contains folder
-if [ -f "$BINARY_NAME" ]; then
-  BIN_PATH="$BINARY_NAME"
-else
-  BIN_PATH="$(find . -maxdepth 2 -type f -name "$BINARY_NAME" | head -n1)"
+# --- Output Raw Links ---
+if [ -z "$FILE_PATHS" ]; then
+    printf "No .sh files found in the '%s' branch of %s.\n" "$BRANCH" "$REPO"
+    exit 0
 fi
-[ -f "$BIN_PATH" ] || err "binary $BINARY_NAME not found in archive"
 
-sudo install -m 0755 "$BIN_PATH" /usr/local/bin/"$BINARY_NAME"
-printf 'Installed %s to /usr/local/bin/%s\n' "$BINARY_NAME" "$BINARY_NAME"
+printf "🔗 Found the following raw links:\n"
+printf "%s\n" "$FILE_PATHS" | while read -r PATH_TO_FILE; do
+    printf "%s/%s\n" "$RAW_URL_BASE" "$PATH_TO_FILE"
+done
+
+printf "\n✅ Link generation complete.\n"
